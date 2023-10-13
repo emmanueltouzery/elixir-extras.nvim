@@ -14,3 +14,11 @@ I'll now list individual functions...
 ```
 
 Leverage the elixir binary behind the scenes to display apidocs in a telescope picker. These are the apidocs as known by your elixir repl, so the versions match exactly with the libraries you're actually using. If you passe in `include_mix_libs=true`, then all libraries will be taken into account, otherwise only elixir core libraries.
+
+## multiple_clause_gutter
+
+```
+:lua require'elixir-extras'.setup_multiple_clause_gutter()
+```
+
+Uses tree-sitter to display icons in the gutter to mark multiple clauses of a single function.
