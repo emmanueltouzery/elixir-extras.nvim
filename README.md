@@ -8,6 +8,8 @@ I'll now list individual functions...
 
 ## elixir_view_docs
 
+![view docs screenshot](https://raw.githubusercontent.com/wiki/emmanueltouzery/elixir-extras.nvim/apidocs.png)
+
 ```
 :lua require('elixir-extras').elixir_view_docs({})
 :lua require('elixir-extras').elixir_view_docs({include_mix_libs=true})
@@ -17,8 +19,10 @@ Leverage the elixir binary behind the scenes to display apidocs in a telescope p
 
 ## multiple_clause_gutter
 
+![clauses gutter screenshot](https://raw.githubusercontent.com/wiki/emmanueltouzery/elixir-extras.nvim/gutter_clauses.png)
+
 ```
 :lua require'elixir-extras'.setup_multiple_clause_gutter()
 ```
 
-Uses tree-sitter to display icons in the gutter to mark multiple clauses of a single function.
+Uses tree-sitter to display markers in the gutter to mark multiple clauses of a single function. For each clause, you can see whether it's part of a multi-clause function, and whether it's the first or last clause or not.
