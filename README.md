@@ -10,7 +10,7 @@ I'll now list individual functions...
 
 ![view docs screenshot](https://raw.githubusercontent.com/wiki/emmanueltouzery/elixir-extras.nvim/apidocs.png)
 
-```
+```lua
 :lua require('elixir-extras').elixir_view_docs({})
 :lua require('elixir-extras').elixir_view_docs({include_mix_libs=true})
 ```
@@ -21,7 +21,7 @@ Leverage the elixir binary behind the scenes to display apidocs in a telescope p
 
 ![clauses gutter screenshot](https://raw.githubusercontent.com/wiki/emmanueltouzery/elixir-extras.nvim/gutter_clauses.png)
 
-```
+```lua
 :lua require'elixir-extras'.setup_multiple_clause_gutter()
 ```
 
