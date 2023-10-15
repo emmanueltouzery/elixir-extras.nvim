@@ -1,5 +1,5 @@
 local function get_extra_mix_folders(opts)
-  extra_mix_folders = {}
+  local extra_mix_folders = {}
 
   if opts and opts.include_mix_libs then
     -- in theory I should load modules through -S mix but.. i couldn't make it work
@@ -7,16 +7,16 @@ local function get_extra_mix_folders(opts)
     local processed_libs = {}
     local base_path = './_build/dev/lib/'
     local sd = vim.loop.fs_scandir(base_path)
-    while sd ~= nil and true do
+    while sd ~= nil do
       local name, type = vim.loop.fs_scandir_next(sd)
       if name == nil then break end
       processed_libs[name] = true
       table.insert(extra_mix_folders, base_path .. name .. '/ebin/')
     end
 
-    local base_path = './_build/test/lib/'
-    local sd = vim.loop.fs_scandir(base_path)
-    while sd ~= nil and true do
+    base_path = './_build/test/lib/'
+    sd = vim.loop.fs_scandir(base_path)
+    while sd ~= nil do
       local name, type = vim.loop.fs_scandir_next(sd)
       if name == nil then break end
       if not processed_libs[name] then
@@ -29,7 +29,7 @@ local function get_extra_mix_folders(opts)
 end
 
 local function elixir_pa_flags(opts, flags)
-  res = {"elixir"}
+  local res = {"elixir"}
 
   local extra_mix_folders = get_extra_mix_folders(opts)
   for _, f in ipairs(extra_mix_folders) do
@@ -81,7 +81,7 @@ local function telescope_view_module_docs(exports, opts, action)
     },
     previewer = previewers.new_termopen_previewer({
       get_command = function(entry, status)
-        export = entry.contents
+        local export = entry.contents
         local command = "h"
         if string.match(export, "^@") then
           export = string.sub(export, 2)
@@ -146,7 +146,7 @@ local function elixir_view_behaviour_module_docs(mod, exports, opts)
                 cur_callback_param_count = cur_callback_param_count + 1
               elseif not is_opening_bracket and char == ')' then
                 goto insert_callback
-              end 
+              end
               is_opening_bracket = char == '('
             end
           end
@@ -174,7 +174,7 @@ local function elixir_view_behaviour_module_docs(mod, exports, opts)
 end
 
 function elixir_view_module_docs(mod, opts)
-  exports = {mod}
+  local exports = {mod}
   -- https://stackoverflow.com/questions/52670918
   vim.fn.jobstart(elixir_pa_flags(opts, { "-e", "require IEx.Helpers; IEx.Helpers.exports(" .. mod .. ")" }), {
     cwd='.',
@@ -213,7 +213,7 @@ local function elixir_append_modules_in_folder(modules, folder)
 end
 
 local function elixir_view_docs_with_runtime_folders(runtime_module_folders, opts)
-  modules = {}
+  local modules = {}
   for _, folder in ipairs(runtime_module_folders) do
     elixir_append_modules_in_folder(modules, folder)
   end
@@ -245,7 +245,7 @@ local function elixir_view_docs(opts)
   -- get some builtin module paths. These modules are in the load path, but may
   -- not be loaded, but we want the docs for them. ExUnit and Logger are examples
   -- of modules for which we need this.
-  module_paths={}
+  local module_paths = {}
   vim.fn.jobstart({
     "elixir", "-e", [[
       :code.get_path()
