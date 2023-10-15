@@ -113,7 +113,6 @@ local function telescope_view_module_docs(exports, opts, action)
           elixir_view_export_docs(entry.contents, opts)
         end
       end)
-      tel_proj_attach_mappings(p, map)
       return true
     end,
   }):find()
