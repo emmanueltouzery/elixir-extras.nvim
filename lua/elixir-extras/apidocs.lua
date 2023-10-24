@@ -55,6 +55,8 @@ local function elixir_view_export_docs(export, opts)
   end
   vim.fn.termopen(table.concat(elixir_pa_flags(opts, {
     " -e 'require IEx.Helpers; IEx.Helpers." .. command .. "(" .. export .. ")'"}), " "))
+  -- set a straightforward buffer name, the one set by termopen is horrible
+  vim.api.nvim_buf_set_name(buf, export)
 end
 
 local function telescope_view_module_docs(exports, opts, action)
