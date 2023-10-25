@@ -59,6 +59,34 @@ local function elixir_view_export_docs(export, opts)
   vim.api.nvim_buf_set_name(buf, export)
 end
 
+local function elixir_goto_source_file(name, opts)
+  local params = table.concat(elixir_pa_flags(opts, {
+    " -e 'require IEx.Helpers; IEx.Helpers.open(" .. name .. ")'"}), " ")
+  local str_output = ""
+  vim.fn.jobstart(params, {
+    cwd='.',
+    env={EDITOR="echo"},
+    stdout_buffered = true,
+    on_stdout = vim.schedule_wrap(function(j, output)
+      str_output = str_output .. table.concat(output)
+    end),
+    on_exit = vim.schedule_wrap(function(j, output)
+      local name_line = vim.split(str_output, ":")
+      if name_line[1] == "Could not open" then
+        vim.notify(str_output, vim.log.levels.ERROR)
+      else
+        -- https://www.reddit.com/r/neovim/comments/10idl7u/how_to_load_a_file_into_neovims_buffer_without/
+        local bufnr = vim.api.nvim_create_buf(true, false)
+        vim.api.nvim_buf_set_name(bufnr, name_line[1])
+        vim.api.nvim_buf_call(bufnr, vim.cmd.edit)
+        vim.api.nvim_win_set_buf(0, bufnr)
+        vim.cmd(':' .. name_line[2])
+        vim.cmd("norm! zz") -- center on screen
+      end
+    end),
+  })
+end
+
 local function telescope_view_module_docs(exports, opts, action)
   local pickers = require "telescope.pickers"
   local finders = require "telescope.finders"
@@ -114,6 +142,14 @@ local function telescope_view_module_docs(exports, opts, action)
           actions.close(prompt_nr)
           elixir_view_export_docs(entry.contents, opts)
         end
+      end)
+      map("i", "<c-s>", function(prompt_nr)
+        local action_state = require "telescope.actions.state"
+        local current_picker = action_state.get_current_picker(prompt_bufnr) -- picker state
+        local entry = action_state.get_selected_entry()
+        local actions = require("telescope.actions")
+        actions.close(prompt_nr)
+        elixir_goto_source_file(entry.contents, opts)
       end)
       return true
     end,
