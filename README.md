@@ -28,3 +28,9 @@ In addition, in the telescope picker, you can press `C-s`, control-s, to open th
 ```
 
 Uses tree-sitter to display markers in the gutter to mark multiple clauses of a single function. For each clause, you can see whether it's part of a multi-clause function, and whether it's the first or last clause or not.
+
+```lua
+:lua require'elixir-extras'.module_complete()
+```
+
+Uses LSP to complete the module name under the cursor. For instance, if you have `MyModule` under the cursor, this function will search for LSP symbols ending in `.MyModule`. Let's say it finds `MyParent.Nested.MyModule`: it will then replace the text under the cursor with that. If there are multiple matches, it will ask the user to pick one (this will look nicer if you install <https://github.com/stevearc/dressing.nvim>).
