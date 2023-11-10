@@ -29,6 +29,8 @@ In addition, in the telescope picker, you can press `C-s`, control-s, to open th
 
 Uses tree-sitter to display markers in the gutter to mark multiple clauses of a single function. For each clause, you can see whether it's part of a multi-clause function, and whether it's the first or last clause or not.
 
+## module_complete
+
 ```lua
 :lua require'elixir-extras'.module_complete()
 ```
