@@ -2,9 +2,17 @@ local function elixir_module_complete()
   -- get the end of the module name under the cursor
   local mod = vim.fn.expand('<cWORD>')
   if string.match(mod, "%.") then
-    -- refusing if there are already levels (dots)
-    -- otherwise applying twice would be messy
-    return
+      -- if it's Mod1.Mod2 then we want to stop, it's already namespaced.
+      -- however if it's Mod1.function() then we want to change it to Root.Mod1.function()
+      local elements = vim.split(mod, "%.")
+      local capitalized_elts = vim.tbl_filter(function(e) return string.upper(string.sub(e, 1, 1)) == string.sub(e, 1, 1) end, elements)
+      if #capitalized_elts == 1 then
+        -- we're good
+        mod = vim.fn.expand('<cword>')
+      else
+        print("Already expanded the module")
+        return
+      end
   end
   local params = { query = mod }
   vim.lsp.buf_request(0, "workspace/symbol", params, function(err, server_result, _, _)
