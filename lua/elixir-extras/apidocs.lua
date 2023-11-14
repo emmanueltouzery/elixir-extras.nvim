@@ -43,7 +43,8 @@ local function elixir_pa_flags(opts, flags)
 end
 
 -- https://stackoverflow.com/a/52521017/516188
-local elixir_view_module_docs
+local elixir_get_module_docs
+local display_multiple_modules_docs
 
 local function elixir_view_export_docs(export, opts)
   local buf = vim.api.nvim_create_buf(true, false)
@@ -129,11 +130,21 @@ local function telescope_view_module_docs(exports, opts, action)
       map("i", "<cr>", function(prompt_nr)
         if action == "view_telescope_module" then
           local action_state = require "telescope.actions.state"
-          local current_picker = action_state.get_current_picker(prompt_bufnr) -- picker state
-          local entry = action_state.get_selected_entry()
+          local picker = action_state.get_current_picker(prompt_nr)
           local actions = require("telescope.actions")
-          actions.close(prompt_nr)
-          elixir_view_module_docs(entry.contents, opts)
+
+          local modules = {}
+          for _, entry in ipairs(picker:get_multi_selection()) do
+            table.insert(modules, entry.value)
+          end
+          if #modules > 0 then
+            actions.close(prompt_nr)
+            display_multiple_modules_docs(modules, {}, 1, opts)
+          else
+            local entry = action_state.get_selected_entry()
+            actions.close(prompt_nr)
+            elixir_get_module_docs(entry.contents, opts, telescope_view_module_docs)
+          end
         else
           local action_state = require "telescope.actions.state"
           local current_picker = action_state.get_current_picker(prompt_bufnr) -- picker state
@@ -156,7 +167,7 @@ local function telescope_view_module_docs(exports, opts, action)
   }):find()
 end
 
-local function elixir_view_behaviour_module_docs(mod, exports, opts)
+local function elixir_get_behaviour_module_docs(mod, exports, opts, cb)
   vim.fn.jobstart(elixir_pa_flags(opts, { "-e", "require IEx.Helpers; IEx.Helpers.b(" .. mod .. ")" }), {
     cwd='.',
     stdout_buffered = true,
@@ -206,12 +217,12 @@ local function elixir_view_behaviour_module_docs(mod, exports, opts)
       end
     end),
     on_exit = vim.schedule_wrap(function(j, output)
-      telescope_view_module_docs(exports, opts)
+      cb(exports, opts)
     end)
   })
 end
 
-function elixir_view_module_docs(mod, opts)
+function elixir_get_module_docs(mod, opts, cb)
   local exports = {mod}
   -- https://stackoverflow.com/questions/52670918
   vim.fn.jobstart(elixir_pa_flags(opts, { "-e", "require IEx.Helpers; IEx.Helpers.exports(" .. mod .. ")" }), {
@@ -225,9 +236,23 @@ function elixir_view_module_docs(mod, opts)
       end
     end),
     on_exit = vim.schedule_wrap(function(j, output)
-      elixir_view_behaviour_module_docs(mod, exports, opts)
+      elixir_get_behaviour_module_docs(mod, exports, opts, cb)
     end)
   })
+end
+
+function display_multiple_modules_docs(modules, exports, index, opts)
+  elixir_get_module_docs(modules[index], opts, function(mod_exports)
+    for _, export in ipairs(mod_exports) do
+      table.insert(exports, export)
+    end
+    if index+1 <= #modules then
+      display_multiple_modules_docs(modules, exports, index+1, opts)
+    else
+      -- done!
+      telescope_view_module_docs(exports, opts)
+    end
+  end)
 end
 
 local function elixir_append_modules_in_folder(modules, folder)
