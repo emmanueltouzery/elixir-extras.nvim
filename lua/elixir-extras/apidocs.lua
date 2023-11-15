@@ -1,46 +1,4 @@
-local function get_extra_mix_folders(opts)
-  local extra_mix_folders = {}
-
-  if opts and opts.include_mix_libs then
-    -- in theory I should load modules through -S mix but.. i couldn't make it work
-    -- from neovim, it's slow and so on.
-    local processed_libs = {}
-    local base_path = './_build/dev/lib/'
-    local sd = vim.loop.fs_scandir(base_path)
-    while sd ~= nil do
-      local name, type = vim.loop.fs_scandir_next(sd)
-      if name == nil then break end
-      processed_libs[name] = true
-      table.insert(extra_mix_folders, base_path .. name .. '/ebin/')
-    end
-
-    base_path = './_build/test/lib/'
-    sd = vim.loop.fs_scandir(base_path)
-    while sd ~= nil do
-      local name, type = vim.loop.fs_scandir_next(sd)
-      if name == nil then break end
-      if not processed_libs[name] then
-        table.insert(extra_mix_folders, base_path .. name .. '/ebin/')
-      end
-    end
-  end
-
-  return extra_mix_folders
-end
-
-local function elixir_pa_flags(opts, flags)
-  local res = {"elixir"}
-
-  local extra_mix_folders = get_extra_mix_folders(opts)
-  for _, f in ipairs(extra_mix_folders) do
-    table.insert(res, "-pa")
-    table.insert(res, f)
-  end
-  for _, f in ipairs(flags) do
-    table.insert(res, f)
-  end
-  return res
-end
+local apidocs_common = require('elixir-extras.apidocs_common')
 
 -- https://stackoverflow.com/a/52521017/516188
 local elixir_get_module_docs
@@ -54,14 +12,14 @@ local function elixir_view_export_docs(export, opts)
     export = string.sub(export, 2)
     command = "b"
   end
-  vim.fn.termopen(table.concat(elixir_pa_flags(opts, {
+  vim.fn.termopen(table.concat(apidocs_common.elixir_pa_flags(opts, {
     " -e 'require IEx.Helpers; IEx.Helpers." .. command .. "(" .. export .. ")'"}), " "))
   -- set a straightforward buffer name, the one set by termopen is horrible
   vim.api.nvim_buf_set_name(buf, export)
 end
 
 local function elixir_goto_source_file(name, opts)
-  local params = table.concat(elixir_pa_flags(opts, {
+  local params = table.concat(apidocs_common.elixir_pa_flags(opts, {
     " -e 'require IEx.Helpers; IEx.Helpers.open(" .. name .. ")'"}), " ")
   local str_output = ""
   vim.fn.jobstart(params, {
@@ -119,7 +77,7 @@ local function telescope_view_module_docs(exports, opts, action)
           command = "b"
         end
         -- https://stackoverflow.com/a/52706650/516188
-        local base_cmd = elixir_pa_flags(opts, {
+        local base_cmd = apidocs_common.elixir_pa_flags(opts, {
           "-e", "'Application.put_env(:iex, :colors, [enabled: true]); require IEx.Helpers; IEx.Helpers." .. command .. "(" .. export .. ")'"
         })
         return {"sh", "-c", table.concat(base_cmd, " ") .. " | less -RS +0 --tilde"}
@@ -168,7 +126,7 @@ local function telescope_view_module_docs(exports, opts, action)
 end
 
 local function elixir_get_behaviour_module_docs(mod, exports, opts, cb)
-  vim.fn.jobstart(elixir_pa_flags(opts, { "-e", "require IEx.Helpers; IEx.Helpers.b(" .. mod .. ")" }), {
+  vim.fn.jobstart(apidocs_common.elixir_pa_flags(opts, { "-e", "require IEx.Helpers; IEx.Helpers.b(" .. mod .. ")" }), {
     cwd='.',
     stdout_buffered = true,
     on_stdout = vim.schedule_wrap(function(j, output)
@@ -225,7 +183,7 @@ end
 function elixir_get_module_docs(mod, opts, cb)
   local exports = {mod}
   -- https://stackoverflow.com/questions/52670918
-  vim.fn.jobstart(elixir_pa_flags(opts, { "-e", "require IEx.Helpers; IEx.Helpers.exports(" .. mod .. ")" }), {
+  vim.fn.jobstart(apidocs_common.elixir_pa_flags(opts, { "-e", "require IEx.Helpers; IEx.Helpers.exports(" .. mod .. ")" }), {
     cwd='.',
     stdout_buffered = true,
     on_stdout = vim.schedule_wrap(function(j, output)
@@ -255,39 +213,19 @@ function display_multiple_modules_docs(modules, exports, index, opts)
   end)
 end
 
-local function elixir_append_modules_in_folder(modules, folder)
-  if vim.fn.isdirectory(folder) == 1 then
-    -- the downside of the -pa loading of ecto modules is that it's on-demand loading, so
-    -- the modules are not discovered => list them by hand
-    -- https://elixirforum.com/t/by-what-mechanism-does-iex-load-beam-files/37102
-    --
-    -- alternative solution: load the module through elixir itself
-    -- elixir -e "IO.inspect(Application.load(:logger); Application.spec(:logger) |> Keyword.get(:modules))"
-    local sd = vim.loop.fs_scandir(folder)
-    while true do
-      local name, type = vim.loop.fs_scandir_next(sd)
-      if name == nil then break end
-      if name:match("%.beam$") then
-        local module = name:gsub("%.beam$", ""):gsub("^Elixir%.", "")
-        table.insert(modules, module)
-      end
-    end
-  end
-end
-
 local function elixir_view_docs_with_runtime_folders(runtime_module_folders, opts)
   local modules = {}
   for _, folder in ipairs(runtime_module_folders) do
-    elixir_append_modules_in_folder(modules, folder)
+    apidocs_common.elixir_append_modules_in_folder(modules, folder)
   end
-  local extra_mix_folders = get_extra_mix_folders(opts)
+  local extra_mix_folders = apidocs_common.get_extra_mix_folders(opts)
   for _, folder in ipairs(extra_mix_folders) do
-    elixir_append_modules_in_folder(modules, folder)
+    apidocs_common.elixir_append_modules_in_folder(modules, folder)
   end
   -- https://stackoverflow.com/questions/58461572/get-a-list-of-all-elixir-modules-in-iex#comment103267199_58462672
   -- vim.fn.jobstart(elixir_pa_flags({ "-e", ":erlang.loaded() |> Enum.sort() |> inspect(limit: :infinity) |> IO.puts" }), {
   -- https://github.com/elixir-lang/elixir/blob/60f86886c0f66c71790e61d754eada4e9fa0ace5/lib/iex/lib/iex/autocomplete.ex#L507
-  vim.fn.jobstart(elixir_pa_flags(opts, { "-e", ":application.get_key(:elixir, :modules) |> inspect(limit: :infinity) |> IO.puts" }), {
+  vim.fn.jobstart(apidocs_common.elixir_pa_flags(opts, { "-e", ":application.get_key(:elixir, :modules) |> inspect(limit: :infinity) |> IO.puts" }), {
     cwd='.',
     stdout_buffered = true,
     on_stdout = vim.schedule_wrap(function(j, output)
