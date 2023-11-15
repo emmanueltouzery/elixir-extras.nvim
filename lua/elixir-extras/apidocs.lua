@@ -263,15 +263,29 @@ local function elixir_append_modules_in_folder(modules, folder)
     --
     -- alternative solution: load the module through elixir itself
     -- elixir -e "IO.inspect(Application.load(:logger); Application.spec(:logger) |> Keyword.get(:modules))"
-    local sd = vim.loop.fs_scandir(folder)
-    while true do
-      local name, type = vim.loop.fs_scandir_next(sd)
-      if name == nil then break end
-      if name:match("%.beam$") then
-        local module = name:gsub("%.beam$", ""):gsub("^Elixir%.", "")
-        table.insert(modules, module)
-      end
-    end
+
+    print(folder)
+    local jobid = vim.fn.jobstart({"elixir", "-e",
+    [[
+      Path.wildcard("*.beam")
+       |> Enum.map(fn fname -> {fname, Code.fetch_docs(fname)} end)
+       |> Enum.filter(fn {_, e} -> elem(e, 0) != :error && elem(e, 4) != :hidden && elem(e, 4) != :none end)
+       |> Enum.map(fn {fname, _} -> fname |> String.replace(".beam", "") |> String.replace("Elixir.", "") end)
+       |> IO.inspect(limit: :infinity)
+    ]]}, {
+      cwd = folder,
+      stdout_buffered = true,
+      on_stdout = vim.schedule_wrap(function(j, output)
+        print(vim.inspect(output))
+        for mod in string.gmatch(output[1], "([^,%s%[%]]+)") do
+          if mod:match("^[A-Z]") then
+            table.insert(modules, mod)
+          end
+        end
+      end)
+    })
+    vim.fn.jobwait({jobid})
+    print(vim.inspect(modules))
   end
 end
 
