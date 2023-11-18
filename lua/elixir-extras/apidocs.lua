@@ -28,10 +28,9 @@ local function get_extra_mix_folders(opts)
   return extra_mix_folders
 end
 
-local function elixir_pa_flags(opts, flags)
+local function elixir_pa_flags(opts, extra_mix_folders, flags)
   local res = {"elixir"}
 
-  local extra_mix_folders = get_extra_mix_folders(opts)
   for _, f in ipairs(extra_mix_folders) do
     table.insert(res, "-pa")
     table.insert(res, f)
@@ -46,7 +45,7 @@ end
 local elixir_get_module_docs
 local display_multiple_modules_docs
 
-local function elixir_view_export_docs(export, opts)
+local function elixir_view_export_docs(export, opts, extra_mix_folders)
   local buf = vim.api.nvim_create_buf(true, false)
   vim.api.nvim_win_set_buf(0, buf)
   local command = "h"
@@ -54,14 +53,14 @@ local function elixir_view_export_docs(export, opts)
     export = string.sub(export, 2)
     command = "b"
   end
-  vim.fn.termopen(table.concat(elixir_pa_flags(opts, {
+  vim.fn.termopen(table.concat(elixir_pa_flags(opts, extra_mix_folders, {
     " -e 'require IEx.Helpers; IEx.Helpers." .. command .. "(" .. export .. ")'"}), " "))
   -- set a straightforward buffer name, the one set by termopen is horrible
   vim.api.nvim_buf_set_name(buf, export)
 end
 
-local function elixir_goto_source_file(name, opts)
-  local params = table.concat(elixir_pa_flags(opts, {
+local function elixir_goto_source_file(name, opts, extra_mix_folders)
+  local params = table.concat(elixir_pa_flags(opts, extra_mix_folders, {
     " -e 'require IEx.Helpers; IEx.Helpers.open(" .. name .. ")'"}), " ")
   local str_output = ""
   vim.fn.jobstart(params, {
@@ -88,7 +87,7 @@ local function elixir_goto_source_file(name, opts)
   })
 end
 
-local function telescope_view_module_docs(exports, opts, action)
+local function telescope_view_module_docs(exports, opts, extra_mix_folders, action)
   local pickers = require "telescope.pickers"
   local finders = require "telescope.finders"
   local previewers = require("telescope.previewers")
@@ -119,7 +118,7 @@ local function telescope_view_module_docs(exports, opts, action)
           command = "b"
         end
         -- https://stackoverflow.com/a/52706650/516188
-        local base_cmd = elixir_pa_flags(opts, {
+        local base_cmd = elixir_pa_flags(opts, extra_mix_folders, {
           "-e", "'Application.put_env(:iex, :colors, [enabled: true]); require IEx.Helpers; IEx.Helpers." .. command .. "(" .. export .. ")'"
         })
         return {"sh", "-c", table.concat(base_cmd, " ") .. " | less -RS +0 --tilde"}
@@ -139,11 +138,11 @@ local function telescope_view_module_docs(exports, opts, action)
           end
           if #modules > 0 then
             actions.close(prompt_nr)
-            display_multiple_modules_docs(modules, {}, 1, opts)
+            display_multiple_modules_docs(modules, {}, 1, opts, extra_mix_folders)
           else
             local entry = action_state.get_selected_entry()
             actions.close(prompt_nr)
-            elixir_get_module_docs(entry.contents, opts, telescope_view_module_docs)
+            elixir_get_module_docs(entry.contents, opts, extra_mix_folders, telescope_view_module_docs)
           end
         else
           local action_state = require "telescope.actions.state"
@@ -151,7 +150,7 @@ local function telescope_view_module_docs(exports, opts, action)
           local entry = action_state.get_selected_entry()
           local actions = require("telescope.actions")
           actions.close(prompt_nr)
-          elixir_view_export_docs(entry.contents, opts)
+          elixir_view_export_docs(entry.contents, opts, extra_mix_folders)
         end
       end)
       map("i", "<c-s>", function(prompt_nr)
@@ -160,15 +159,15 @@ local function telescope_view_module_docs(exports, opts, action)
         local entry = action_state.get_selected_entry()
         local actions = require("telescope.actions")
         actions.close(prompt_nr)
-        elixir_goto_source_file(entry.contents, opts)
+        elixir_goto_source_file(entry.contents, opts, extra_mix_folders)
       end)
       return true
     end,
   }):find()
 end
 
-local function elixir_get_behaviour_module_docs(mod, exports, opts, cb)
-  vim.fn.jobstart(elixir_pa_flags(opts, { "-e", "require IEx.Helpers; IEx.Helpers.b(" .. mod .. ")" }), {
+local function elixir_get_behaviour_module_docs(mod, exports, opts, extra_mix_folders, cb)
+  vim.fn.jobstart(elixir_pa_flags(opts, extra_mix_folders, { "-e", "require IEx.Helpers; IEx.Helpers.b(" .. mod .. ")" }), {
     cwd='.',
     stdout_buffered = true,
     on_stdout = vim.schedule_wrap(function(j, output)
@@ -217,15 +216,15 @@ local function elixir_get_behaviour_module_docs(mod, exports, opts, cb)
       end
     end),
     on_exit = vim.schedule_wrap(function(j, output)
-      cb(exports, opts)
+      cb(exports, opts, extra_mix_folders)
     end)
   })
 end
 
-function elixir_get_module_docs(mod, opts, cb)
+function elixir_get_module_docs(mod, opts, extra_mix_folders, cb)
   local exports = {mod}
   -- https://stackoverflow.com/questions/52670918
-  vim.fn.jobstart(elixir_pa_flags(opts, { "-e", "require IEx.Helpers; IEx.Helpers.exports(" .. mod .. ")" }), {
+  vim.fn.jobstart(elixir_pa_flags(opts, extra_mix_folders, { "-e", "require IEx.Helpers; IEx.Helpers.exports(" .. mod .. ")" }), {
     cwd='.',
     stdout_buffered = true,
     on_stdout = vim.schedule_wrap(function(j, output)
@@ -236,21 +235,21 @@ function elixir_get_module_docs(mod, opts, cb)
       end
     end),
     on_exit = vim.schedule_wrap(function(j, output)
-      elixir_get_behaviour_module_docs(mod, exports, opts, cb)
+      elixir_get_behaviour_module_docs(mod, exports, opts, extra_mix_folders, cb)
     end)
   })
 end
 
-function display_multiple_modules_docs(modules, exports, index, opts)
-  elixir_get_module_docs(modules[index], opts, function(mod_exports)
+function display_multiple_modules_docs(modules, exports, index, opts, extra_mix_folders)
+  elixir_get_module_docs(modules[index], opts, extra_mix_folders, function(mod_exports)
     for _, export in ipairs(mod_exports) do
       table.insert(exports, export)
     end
     if index+1 <= #modules then
-      display_multiple_modules_docs(modules, exports, index+1, opts)
+      display_multiple_modules_docs(modules, exports, index+1, opts, extra_mix_folders)
     else
       -- done!
-      telescope_view_module_docs(exports, opts)
+      telescope_view_module_docs(exports, opts, extra_mix_folders)
     end
   end)
 end
@@ -287,7 +286,8 @@ local function elixir_view_docs_with_runtime_folders(runtime_module_folders, opt
   -- https://stackoverflow.com/questions/58461572/get-a-list-of-all-elixir-modules-in-iex#comment103267199_58462672
   -- vim.fn.jobstart(elixir_pa_flags({ "-e", ":erlang.loaded() |> Enum.sort() |> inspect(limit: :infinity) |> IO.puts" }), {
   -- https://github.com/elixir-lang/elixir/blob/60f86886c0f66c71790e61d754eada4e9fa0ace5/lib/iex/lib/iex/autocomplete.ex#L507
-  vim.fn.jobstart(elixir_pa_flags(opts, { "-e", ":application.get_key(:elixir, :modules) |> inspect(limit: :infinity) |> IO.puts" }), {
+  vim.fn.jobstart(elixir_pa_flags(opts, extra_mix_folders,
+      { "-e", ":application.get_key(:elixir, :modules) |> inspect(limit: :infinity) |> IO.puts" }), {
     cwd='.',
     stdout_buffered = true,
     on_stdout = vim.schedule_wrap(function(j, output)
@@ -299,7 +299,7 @@ local function elixir_view_docs_with_runtime_folders(runtime_module_folders, opt
     end),
     on_exit = vim.schedule_wrap(function(j, output)
       table.sort(modules)
-      telescope_view_module_docs(modules, opts, "view_telescope_module")
+      telescope_view_module_docs(modules, opts, extra_mix_folders, "view_telescope_module")
     end)
   })
 end
