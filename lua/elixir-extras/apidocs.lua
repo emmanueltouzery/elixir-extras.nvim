@@ -113,7 +113,10 @@ local function telescope_view_module_docs(exports, opts, extra_mix_folders, acti
       get_command = function(entry, status)
         local export = entry.contents
         local command = "h"
-        if string.match(export, "^@") then
+        if export:match(" %[type%]$") then
+          export = string.sub(export, 2):gsub(" %[type%]$", "")
+          command = "t"
+        elseif string.match(export, "^@") then
           export = string.sub(export, 2)
           command = "b"
         end
@@ -167,18 +170,20 @@ local function telescope_view_module_docs(exports, opts, extra_mix_folders, acti
 end
 
 local function elixir_get_behaviour_module_docs(mod, exports, opts, extra_mix_folders, cb)
-  vim.fn.jobstart(elixir_pa_flags(opts, extra_mix_folders, { "-e", "require IEx.Helpers; IEx.Helpers.b(" .. mod .. ")" }), {
+  vim.fn.jobstart(elixir_pa_flags(opts, extra_mix_folders, { "-e", "require IEx.Helpers; IEx.Helpers.b(" .. mod .. "); IEx.Helpers.t(" .. mod .. ")"}), {
     cwd='.',
     stdout_buffered = true,
     on_stdout = vim.schedule_wrap(function(j, output)
       local cur_callback_name = nil
       local cur_callback_param_count = 0
       local is_opening_bracket = false
+      local is_type = false
       for _, line in ipairs(output) do
         if cur_callback_name == nil then
-          if string.match(line, "^@callback ") then
+          is_type = string.match(line, "^@type ")
+          if string.match(line, "^@callback ") or is_type then
             local end_idx = string.find(line, "%(")
-            cur_callback_name = string.sub(line, 11, end_idx-1)
+            cur_callback_name = string.gsub(line, "^@callback ", ""):gsub("^@type ", ""):gsub("%(.*$", "")
             if string.sub(line, end_idx+1, end_idx+1) == ')' then
               cur_callback_param_count = 0
               goto insert_callback
@@ -209,7 +214,11 @@ local function elixir_get_behaviour_module_docs(mod, exports, opts, extra_mix_fo
         end
         ::insert_callback::
         if cur_callback_name ~= nil then
-          table.insert(exports, "@" .. mod .. "." .. cur_callback_name .. "/" .. cur_callback_param_count)
+          local postfix = ""
+          if is_type then
+            postfix = " [type]"
+          end
+          table.insert(exports, "@" .. mod .. "." .. cur_callback_name .. "/" .. cur_callback_param_count .. postfix)
           cur_callback_name = nil
         end
         ::skip_to_next::
