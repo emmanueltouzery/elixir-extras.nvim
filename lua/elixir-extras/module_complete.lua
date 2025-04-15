@@ -21,7 +21,8 @@ local function elixir_module_complete()
       return
     end
     local relevant_modules = vim.tbl_filter(function(s)
-      return s.kind == 2 and string.match(s.name, "%." .. mod .. "$")
+      -- 2 == module ("namespace"), 23 == struct
+      return (s.kind == 23 or s.kind == 2) and string.match(s.name, "%." .. mod .. "$")
     end, server_result)
     if #relevant_modules == 1 then
       vim.cmd("norm! caw" .. relevant_modules[1].name)
