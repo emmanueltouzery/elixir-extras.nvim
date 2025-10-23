@@ -18,7 +18,7 @@ function _G.elixir_mark_multiple_clause_fns()
   vim.cmd[[sign define clause text=⡇ texthl=TSFunction]]
   vim.cmd[[sign define clauseStart text=⡏ texthl=TSFunction]]
   vim.cmd[[sign define clauseEnd text=⣇ texthl=TSFunction]]
-  local parser = vim.treesitter.get_parser(0)
+  local parser = vim.treesitter.get_parser(0, nil, {error=false})
   if parser == nil then
     -- getting this sometimes when displaying elixir code in popups or something
     return
