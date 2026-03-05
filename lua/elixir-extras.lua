@@ -6,4 +6,5 @@ return {
   elixir_view_docs = apidocs.elixir_view_docs,
   setup_multiple_clause_gutter = multiple_clause_gutter.setup_multiple_clause_gutter,
   module_complete = module_complete.elixir_module_complete,
+  module_alias = module_complete.elixir_module_complete_alias,
 }

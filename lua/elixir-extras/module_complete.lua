@@ -1,4 +1,4 @@
-local function elixir_module_complete()
+local function elixir_module_complete_action(cb)
   -- get the end of the module name under the cursor (drop any ',' or ')' that would be at the end)
   local mod = vim.fn.expand('<cWORD>'):gsub("[,)]$", "")
   if string.match(mod, "%.") then
@@ -6,13 +6,15 @@ local function elixir_module_complete()
       -- however if it's Mod1.function() then we want to change it to Root.Mod1.function()
       local elements = vim.split(mod, "%.")
       local capitalized_elts = vim.tbl_filter(function(e) return string.upper(string.sub(e, 1, 1)) == string.sub(e, 1, 1) end, elements)
-      if #capitalized_elts == 1 then
+      -- disable check for "already expanded" because there'll be false positives
+      -- when use A.B modules, but A is not the root module.
+      -- if #capitalized_elts == 1 then
         -- we're good
         mod = vim.fn.expand('<cword>')
-      else
-        print("Already expanded the module")
-        return
-      end
+      -- else
+      --   print("Already expanded the module")
+      --   return
+      -- end
   end
   local params = { query = mod }
   vim.lsp.buf_request(0, "workspace/symbol", params, function(err, server_result, _, _)
@@ -25,18 +27,32 @@ local function elixir_module_complete()
       return (s.kind == 23 or s.kind == 2) and string.match(s.name, "%." .. mod .. "$")
     end, server_result)
     if #relevant_modules == 1 then
-      vim.cmd("norm! ciw" .. relevant_modules[1].name)
+      cb(relevant_modules[1].name, mod)
     elseif #relevant_modules > 1 then
       local candidate_names = vim.tbl_map(function(n) return n.name end, relevant_modules)
       vim.ui.select(candidate_names, {prompt="Pick the module to use"}, function(module)
         if module ~= nil then
-          vim.cmd("norm! ciw" .. module)
+          cb(module, mod)
         end
       end)
     end
   end)
 end
 
+local function elixir_module_complete()
+  elixir_module_complete_action(function(mod_path, mod)
+    vim.cmd("norm! ciw" .. mod_path)
+  end)
+end
+
+local function elixir_module_complete_alias()
+  elixir_module_complete_action(function(mod_path, mod)
+    vim.cmd("norm! Oalias " .. mod_path)
+  end)
+end
+
+
 return {
-  elixir_module_complete = elixir_module_complete
+  elixir_module_complete = elixir_module_complete,
+  elixir_module_complete_alias = elixir_module_complete_alias,
 }
