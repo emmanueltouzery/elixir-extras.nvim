@@ -1,6 +1,7 @@
 local function elixir_module_complete_action(cb)
   -- get the end of the module name under the cursor (drop any ',' or ')' that would be at the end)
-  local mod = vim.fn.expand('<cWORD>'):gsub("[,)]$", "")
+  -- also handle %Module{...}
+  local mod = vim.fn.expand('<cWORD>'):gsub("[,){].*$", ""):gsub("%%", "")
   if string.match(mod, "%.") then
       -- if it's Mod1.Mod2 then we want to stop, it's already namespaced.
       -- however if it's Mod1.function() then we want to change it to Root.Mod1.function()
