@@ -38,3 +38,9 @@ Uses tree-sitter to display markers in the gutter to mark multiple clauses of a 
 ```
 
 Uses LSP to complete the module name under the cursor. For instance, if you have `MyModule` under the cursor, this function will search for LSP symbols ending in `.MyModule`. Let's say it finds `MyParent.Nested.MyModule`: it will then replace the text under the cursor with that. If there are multiple matches, it will ask the user to pick one (this will look nicer if you install <https://github.com/stevearc/dressing.nvim>).
+
+```lua
+:lua require'elixir-extras'.module_complete_alias()
+```
+
+same as `module_complete`, but will generate an alias line, and insert it in the line before the cursor.
